@@ -1,4 +1,6 @@
-## Aim: 
+## Aim: Simulate the measurement process
+## Status/belongs to: Isotope lab/ PaleoEis Group
+
 
 
 library(tidyverse)
@@ -29,7 +31,7 @@ simulate <- function(vial, sequence, names, d18O.machine = -37.5)
     ##Initial values
     runtime.minutes <- 0
     
-    ##Predefine an empty dataframe as output... must me an easier way
+    ##Predefine an empty dataframe as output...
     output <- matrix(NA,length(sequence),4)
     colnames(output) <- c("Line","Analysis","Port","d.18_16.Mean")
     output <- as.data.frame(output)
@@ -91,19 +93,38 @@ sequence <- c(block1,block1,block1,block1,block1,block2)
 #Arbitary naming of blocks that is later used to average the blocks
 names <- (c(block1,block1+3,block1+6,block1+9,block1+12,block2+12))
 
+experiments <- data.frame(Replicate = 1:4)
 
-##Run 4 times and put them all in one big dataframe
-run1 <- simulate(vial,sequence,names)
-run2 <- simulate(vial,sequence,names)
-run3 <- simulate(vial,sequence,names)
-run4 <- simulate(vial,sequence,names)
+runs <- experiments %>% group_by(Replicate) %>% do({simulate(vial,sequence,names)})
 
-run1$Replicate = 1
-run2$Replicate = 2
-run3$Replicate = 3
-run4$Replicate = 4
 
-runs <- rbind(run1,run2,run3,run4)
+##Basic plots and analyses using tidyR / ggplot
+
+ggplot(runs, aes(x=Line,y=d.18_16.Mean,colour=Port)) +  geom_point()  + ggtitle("all measurements") + facet_wrap(~Replicate)
+meanvals <- runs %>% group_by(Analysis,Replicate) %>% summarize(m=mean(d.18_16.Mean),n=n(),se=sd(d.18_16.Mean)/sqrt(n),Port=Port[1])
+meanvals %>% ggplot( aes(x=Analysis,y=m,colour=Port)) +  geom_point() + geom_errorbar(aes(ymin=m-se,ymax=m+se)) +  ggtitle("mean values and standard errors")  + facet_wrap(~Replicate)
+
+
+
+#### Experiment 2:
+
+
+#Define what is initially in the vials; here we use 6 vials with standards
+vial<-data.frame(d18O=c(-40,-30,-20,-35,-32),water.volume=c(1.6,1.6,1.6,1.6,1.6),holes=c(0,0,0,0,0))
+
+##Define the sequence of the measurements... blocks are just used to simplify the construction; block1 is the repeating 75,75,10 injections; block2 three untouched vials at the end to separate the instrument from the vial drift
+
+calibBlock <-  c(rep(1,10),rep(2,10),rep(3,10))
+middleBlock <-     c(rep(4,6),rep(5,6))
+sequence <- c(calibBlock,rep(middleBlock,20),calibBlock)
+
+#Arbitary naming of blocks that is later used to average the blocks
+names.vial <- seq(sequence)
+
+experiments <- data.frame(Replicate = 1:4)
+
+runs <- experiments %>% group_by(Replicate) %>% do({simulate(vial,sequence,names)})
+
 
 ##Basic plots and analyses using tidyR / ggplot
 
